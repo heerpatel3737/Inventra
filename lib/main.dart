@@ -9,6 +9,7 @@ import 'firebase_options.dart';
 import 'data/database/database_helper.dart';
 import 'services/sync_service.dart';
 import 'services/notification_service.dart';
+import 'services/auth_service.dart';
 
 Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(
@@ -37,6 +38,8 @@ Future<void> main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
+    await AuthService().initializePersistence();
 
     FirebaseMessaging.onBackgroundMessage(
       _firebaseBackgroundHandler,

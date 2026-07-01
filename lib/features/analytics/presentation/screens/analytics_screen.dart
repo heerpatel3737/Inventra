@@ -24,11 +24,11 @@ class AnalyticsScreen extends ConsumerWidget {
       ),
       children: [
         AnalyticsMetricsRow(),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         AnalyticsTrendPanel(),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         AnalyticsCategoryPanel(),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         AnalyticsAiPanel(),
       ],
     );

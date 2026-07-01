@@ -35,10 +35,18 @@
   - Removed all hardcoded product counts. Category product counts are calculated dynamically from actual product database records.
 - **UI Settings Polish**:
   - Fixed dark mode visibility and contrast issues for dropdowns, settings tiles, and custom dialogs.
+- **User Data Isolation & Session Persistence**:
+  - Scoped SQLite rows and Web SharedPreferences keys by authenticated Firebase `uid`.
+  - Firestore sync now writes to per-user subcollections: `users/{uid}/products|categories|suppliers|sales|purchases`.
+  - Sales and purchases persist locally and sync to Firestore for cross-session and cross-device recovery.
+  - Added `userSessionProvider` to bind auth state to local DB scope and invalidate data providers on login/logout.
+- **Google Sign-In & Auth Session Restore**:
+  - Fixed Web client ID typo and configured Android `serverClientId` for Firebase credential exchange.
+  - Enabled Firebase Auth LOCAL persistence on Web.
+  - Splash screen waits for auth state before routing; logout now calls Firebase sign-out and returns to `AuthGate`.
 
 ## In Progress
 - **Verification & Deployment Prep**: Validating the integrated features against native Android, iOS, and Web environments.
-- **Code Audit**: Auditing remaining hardcoded demo/mock data sources across other screens (like suppliers, sales, and purchases) and linking them to repository-driven providers.
 
 ## Pending
 - None.
@@ -47,6 +55,11 @@
 - **Appearance Dropdown dark mode contrast**: Updated the dropdown widget style to ensure perfect contrast and visibility of selected items and text in dark theme.
 - **Hardcoded name in Sidebar/Drawer**: Subscribed both widgets to `authStateProvider` to show the correct authenticated profile info.
 - **Dynamic Category Count**: Replaced category total product count with a computed state from categories + products provider.
+- **Cross-user data leak**: All inventory CRUD queries now filter by authenticated `uid`; Firestore paths are user-scoped.
+- **Sales/purchases lost after restart**: Added Firestore sync queue + realtime pull for sales and purchases; local storage is uid-scoped.
+- **Google Sign-In broken on Android/Web**: Corrected OAuth client ID; Android uses `serverClientId`; Web uses `clientId` + meta tag.
+- **Logout did not clear session**: Sidebar/drawer logout now calls `authRepository.signOut()` and routes to `AuthGate`.
+- **Session not restored on app launch**: Splash waits for Firebase auth resolution; persisted sessions route directly to dashboard via `AuthGate`.
 
 ## Next Steps
 
@@ -57,6 +70,7 @@
   FIREBASE_APP_ID=your_firebase_app_id
   FIREBASE_MESSAGING_SENDER_ID=your_sender_id
   FIREBASE_PROJECT_ID=your_project_id
+  GOOGLE_WEB_CLIENT_ID=your_google_web_client_id.apps.googleusercontent.com
   GEMINI_API_KEY=your_gemini_key
   OPENAI_API_KEY=your_openai_key
   ```
@@ -66,7 +80,15 @@
 - **iOS**: Place `GoogleService-Info.plist` in the `ios/Runner/` directory.
 - Verify push permissions are properly requested during application launch in `NotificationService`.
 
-### 3. Production Bundling & Testing
+### 3. Firestore Security Rules
+- Deploy rules restricting access to user-owned subcollections:
+  ```
+  match /users/{userId}/{document=**} {
+    allow read, write: if request.auth != null && request.auth.uid == userId;
+  }
+  ```
+
+### 4. Production Bundling & Testing
 - Compile and test production builds on target platforms:
   ```bash
   # Web compilation
@@ -79,6 +101,6 @@
   flutter build ipa --release
   ```
 
-### 4. Conflict Resolution Auditing
+### 5. Conflict Resolution Auditing
 - Review synchronization behaviors under high latency network environments.
 - Verify Firestore Security Rules are set to restrict read/write access to authenticated owners.

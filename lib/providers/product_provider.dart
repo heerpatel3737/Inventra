@@ -59,6 +59,8 @@ class ProductsNotifier extends StateNotifier<AsyncValue<List<ProductModel>>> {
     required String supplier,
     required int stock,
     required double price,
+    String? imageUrl,
+    String? barcode,
   }) async {
     state = const AsyncValue.loading();
 
@@ -69,6 +71,8 @@ class ProductsNotifier extends StateNotifier<AsyncValue<List<ProductModel>>> {
         supplier: supplier,
         stock: stock,
         price: price,
+        imageUrl: imageUrl,
+        barcode: barcode,
       );
       return _repository.fetchProducts();
     });

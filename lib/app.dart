@@ -27,6 +27,7 @@ import 'features/settings/presentation/screens/settings_screen.dart';
 import 'screens/splash/splash_screen.dart';
 import 'features/notifications/presentation/providers/notifications_providers.dart';
 import 'shared/providers/theme_mode_provider.dart';
+import 'providers/user_session_provider.dart';
 
 class InventoryApp extends ConsumerWidget {
   const InventoryApp({super.key});
@@ -34,6 +35,7 @@ class InventoryApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(notificationsInventorySyncProvider);
+    ref.watch(userSessionProvider);
     final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp(

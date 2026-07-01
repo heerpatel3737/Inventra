@@ -8,6 +8,8 @@ class ProductModel {
   final int stock;
   final String category;
   final String supplier;
+  final String? imageUrl;
+  final String? barcode;
 
   const ProductModel({
     this.id,
@@ -16,6 +18,8 @@ class ProductModel {
     required this.stock,
     required this.category,
     required this.supplier,
+    this.imageUrl,
+    this.barcode,
   });
 
   /// Human-readable SKU label for the UI (e.g. "SKU-0001").
@@ -31,6 +35,8 @@ class ProductModel {
     int? stock,
     String? category,
     String? supplier,
+    String? imageUrl,
+    String? barcode,
   }) {
     return ProductModel(
       id: id ?? this.id,
@@ -39,6 +45,8 @@ class ProductModel {
       stock: stock ?? this.stock,
       category: category ?? this.category,
       supplier: supplier ?? this.supplier,
+      imageUrl: imageUrl ?? this.imageUrl,
+      barcode: barcode ?? this.barcode,
     );
   }
 
@@ -51,6 +59,8 @@ class ProductModel {
       'stock': stock,
       'category': category,
       'supplier': supplier,
+      'imageUrl': imageUrl ?? '',
+      'barcode': barcode ?? '',
     };
   }
 
@@ -63,6 +73,8 @@ class ProductModel {
       stock: map['stock'] as int,
       category: map['category'] as String,
       supplier: map['supplier'] as String,
+      imageUrl: map['imageUrl'] as String?,
+      barcode: map['barcode'] as String?,
     );
   }
 
@@ -75,9 +87,11 @@ class ProductModel {
         other.price == price &&
         other.stock == stock &&
         other.category == category &&
-        other.supplier == supplier;
+        other.supplier == supplier &&
+        other.imageUrl == imageUrl &&
+        other.barcode == barcode;
   }
 
   @override
-  int get hashCode => Object.hash(id, name, price, stock, category, supplier);
+  int get hashCode => Object.hash(id, name, price, stock, category, supplier, imageUrl, barcode);
 }

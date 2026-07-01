@@ -13,35 +13,53 @@ class AnalyticsMetricsRow extends ConsumerWidget {
     final turnover = ref.watch(inventoryTurnoverProvider);
     final accuracy = ref.watch(orderAccuracyProvider);
 
+    final width = MediaQuery.of(context).size.width;
+    final isMobile = width < 700;
+
+    final cards = [
+      MetricCard(
+        label: 'Growth',
+        value: growth,
+        caption: 'Month-over-month revenue momentum',
+        icon: Icons.trending_up_rounded,
+      ),
+      MetricCard(
+        label: 'Turnover',
+        value: turnover,
+        caption: 'Revenue velocity against catalog value',
+        icon: Icons.loop_rounded,
+      ),
+      MetricCard(
+        label: 'Order Accuracy',
+        value: accuracy,
+        caption: 'Paid orders vs total order volume',
+        icon: Icons.verified_rounded,
+      ),
+    ];
+
+    if (isMobile) {
+      return Column(
+        children: cards.map((card) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: SizedBox(
+              width: double.infinity,
+              child: card,
+            ),
+          );
+        }).toList(),
+      );
+    }
+
     return Row(
-      children: [
-        Expanded(
-          child: MetricCard(
-            label: 'Growth',
-            value: growth,
-            caption: 'Month-over-month revenue momentum',
-            icon: Icons.trending_up_rounded,
+      children: cards.map((card) {
+        return Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: card,
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: MetricCard(
-            label: 'Turnover',
-            value: turnover,
-            caption: 'Revenue velocity against catalog value',
-            icon: Icons.loop_rounded,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: MetricCard(
-            label: 'Order Accuracy',
-            value: accuracy,
-            caption: 'Paid orders vs total order volume',
-            icon: Icons.verified_rounded,
-          ),
-        ),
-      ],
+        );
+      }).toList(),
     );
   }
 }

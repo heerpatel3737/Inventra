@@ -4,6 +4,7 @@ class UserProfileModel {
   final String role;
   final String phone;
   final String department;
+  final String? photoUrl;
 
   const UserProfileModel({
     required this.name,
@@ -11,6 +12,7 @@ class UserProfileModel {
     required this.role,
     required this.phone,
     required this.department,
+    this.photoUrl,
   });
 
   UserProfileModel copyWith({
@@ -19,6 +21,7 @@ class UserProfileModel {
     String? role,
     String? phone,
     String? department,
+    String? photoUrl,
   }) {
     return UserProfileModel(
       name: name ?? this.name,
@@ -26,6 +29,7 @@ class UserProfileModel {
       role: role ?? this.role,
       phone: phone ?? this.phone,
       department: department ?? this.department,
+      photoUrl: photoUrl ?? this.photoUrl,
     );
   }
 
@@ -37,6 +41,7 @@ class UserProfileModel {
       'role': role,
       'phone': phone,
       'department': department,
+      'photoUrl': photoUrl ?? '',
     };
   }
 
@@ -47,6 +52,7 @@ class UserProfileModel {
       role: map['role'] as String,
       phone: map['phone'] as String,
       department: map['department'] as String,
+      photoUrl: map['photoUrl'] as String?,
     );
   }
 }

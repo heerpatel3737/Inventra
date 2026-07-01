@@ -51,7 +51,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       }
       if (mounted) {
-        Navigator.pushReplacementNamed(context, AppRoutes.dashboard);
+        Navigator.pushReplacementNamed(context, AppRoutes.authGate);
       }
     } catch (e) {
       if (mounted) {
@@ -71,10 +71,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     loading.state = true;
     try {
       final cred = await authRepo.signInWithGoogle();
-      if (cred != null) {
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, AppRoutes.dashboard);
-        }
+      if (cred != null && mounted) {
+        Navigator.pushReplacementNamed(context, AppRoutes.authGate);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google Sign-In was cancelled.')),
+        );
       }
     } catch (e) {
       if (mounted) {

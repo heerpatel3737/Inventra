@@ -56,6 +56,7 @@ class ProfileNotifier extends StateNotifier<AsyncValue<UserProfileModel>> {
     required String role,
     required String phone,
     required String department,
+    String? photoUrl,
   }) async {
     final current = state.value;
     if (current == null) return;
@@ -66,6 +67,7 @@ class ProfileNotifier extends StateNotifier<AsyncValue<UserProfileModel>> {
       role: role.trim(),
       phone: phone.trim(),
       department: department.trim(),
+      photoUrl: photoUrl ?? current.photoUrl,
     );
 
     // Persist locally
@@ -88,6 +90,7 @@ class ProfileNotifier extends StateNotifier<AsyncValue<UserProfileModel>> {
           'role': updated.role,
           'phone': updated.phone,
           'department': updated.department,
+          'photoUrl': updated.photoUrl,
         }, SetOptions(merge: true));
 
         // Also update Firebase Auth display name

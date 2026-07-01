@@ -122,7 +122,16 @@ class CustomDrawer extends ConsumerWidget {
                   ),
                   leading: const Icon(Icons.logout_rounded, color: AppColors.danger),
                   title: Text('Log out', style: TextStyle(color: colorScheme.onSurface)),
-                  onTap: () => Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (_) => false),
+                  onTap: () async {
+                    await ref.read(authRepositoryProvider).signOut();
+                    if (context.mounted) {
+                      Navigator.pushNamedAndRemoveUntil(
+                        context,
+                        AppRoutes.authGate,
+                        (_) => false,
+                      );
+                    }
+                  },
                 ),
               ),
             ],

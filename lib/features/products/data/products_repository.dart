@@ -19,6 +19,8 @@ class ProductsRepository {
     required String supplier,
     required int stock,
     required double price,
+    String? imageUrl,
+    String? barcode,
   }) async {
     final product = ProductModel(
       name: name,
@@ -26,6 +28,8 @@ class ProductsRepository {
       supplier: supplier,
       stock: stock,
       price: price,
+      imageUrl: imageUrl,
+      barcode: barcode,
     );
     final id = await _databaseHelper.insertProduct(product);
     final savedProduct = product.copyWith(id: id);

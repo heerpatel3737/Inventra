@@ -10,12 +10,60 @@ import '../../../../widgets/layouts/editorial_header.dart';
 import '../../../../widgets/layouts/luxury_scaffold.dart';
 import '../providers/settings_providers.dart';
 import '../widgets/profile_edit_dialog.dart';
+import '../../../../services/storage_service.dart';
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  bool _isUploading = false;
+
+  Future<void> _uploadProfilePhoto(String email) async {
+    final pickedFile = await StorageService.pickImage();
+    if (pickedFile == null) return;
+
+    setState(() => _isUploading = true);
+
+    try {
+      final fileName = 'avatar_${email}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final url = await StorageService.uploadImage(
+        file: pickedFile,
+        bucketPath: 'avatars/$fileName',
+      );
+
+      final profileAsync = ref.read(profileProvider);
+      final profile = profileAsync.value;
+      if (profile != null) {
+        await ref.read(profileProvider.notifier).updateProfile(
+              name: profile.name,
+              email: profile.email,
+              role: profile.role,
+              phone: profile.phone,
+              department: profile.department,
+              photoUrl: url,
+            );
+      }
+      if (mounted) {
+        AppSnackbar.showSuccess(context, 'Profile picture updated successfully!');
+      }
+    } catch (e) {
+      debugPrint('[ProfileScreen] Error uploading photo: $e');
+      if (mounted) {
+        AppSnackbar.showError(context, 'Profile picture upload failed. Please try again.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final profileAsync = ref.watch(profileProvider);
     final refresh = ref.read(profileRefreshProvider);
 
@@ -40,9 +88,43 @@ class ProfileScreen extends ConsumerWidget {
               Card(
                 child: ListTile(
                   contentPadding: const EdgeInsets.all(16),
-                  leading: const CircleAvatar(
-                    radius: 28,
-                    child: Icon(Icons.person_rounded),
+                  leading: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      CircleAvatar(
+                        radius: 28,
+                        backgroundImage: profile.photoUrl != null && profile.photoUrl!.isNotEmpty
+                            ? NetworkImage(profile.photoUrl!)
+                            : null,
+                        child: profile.photoUrl == null || profile.photoUrl!.isEmpty
+                            ? const Icon(Icons.person_rounded)
+                            : null,
+                      ),
+                      if (_isUploading)
+                        const Positioned.fill(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      else
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: GestureDetector(
+                            onTap: () => _uploadProfilePhoto(profile.email),
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: const BoxDecoration(
+                                color: Colors.blue,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt,
+                                size: 14,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   title: Text(profile.name),
                   subtitle: Text('${profile.email}\n${profile.role}'),

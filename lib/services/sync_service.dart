@@ -6,6 +6,8 @@ import '../data/database/database_helper.dart';
 import '../models/product_model.dart';
 import '../models/category_model.dart';
 import '../models/supplier_model.dart';
+import '../models/sales_model.dart';
+import '../models/purchase_model.dart';
 
 class SyncService {
   SyncService._();
@@ -16,11 +18,25 @@ class SyncService {
   final Connectivity _connectivity = Connectivity();
 
   bool _isSyncing = false;
+  String? _userId;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   final List<StreamSubscription> _firestoreSubscriptions = [];
 
+  void setUserId(String? uid) {
+    if (_userId == uid) return;
+    stopRealtimeSync();
+    _userId = uid;
+  }
+
+  CollectionReference<Map<String, dynamic>> _userCollection(String collection) {
+    final uid = _userId;
+    if (uid == null || uid.isEmpty) {
+      throw StateError('Cannot sync without an authenticated user.');
+    }
+    return _firestore.collection('users').doc(uid).collection(collection);
+  }
+
   void initialize() {
-    // Listen for network changes to auto-sync on reconnect
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen((results) {
       if (results.isNotEmpty && !results.contains(ConnectivityResult.none)) {
         debugPrint('[SyncService] Network restored. Syncing queue...');
@@ -32,9 +48,8 @@ class SyncService {
       }
     });
 
-    // Initial check
     isOnline().then((online) {
-      if (online) {
+      if (online && _userId != null) {
         syncQueue();
         startRealtimeSync();
       }
@@ -50,7 +65,7 @@ class SyncService {
   }
 
   Future<void> syncQueue() async {
-    if (_isSyncing) return;
+    if (_isSyncing || _userId == null) return;
     _isSyncing = true;
 
     try {
@@ -59,6 +74,7 @@ class SyncService {
         return;
       }
 
+      _dbHelper.setCurrentUserId(_userId);
       final items = await _dbHelper.getQueueItems();
       if (items.isEmpty) {
         debugPrint('[SyncService] Queue is empty.');
@@ -67,8 +83,7 @@ class SyncService {
 
       debugPrint('[SyncService] Syncing ${items.length} items from offline queue...');
       for (final item in items) {
-        final collectionRef = _firestore.collection(item.collection);
-        final docRef = collectionRef.doc(item.recordId);
+        final docRef = _userCollection(item.collection).doc(item.recordId);
 
         try {
           if (item.action == 'DELETE') {
@@ -76,13 +91,12 @@ class SyncService {
           } else {
             await docRef.set(item.data, SetOptions(merge: true));
           }
-          // Delete from local queue after success
           if (item.id != null) {
             await _dbHelper.deleteQueueItem(item.id!);
           }
         } catch (error) {
           debugPrint('[SyncService] Failed to sync queue item ${item.id}: $error');
-          break; // Stop to preserve sequence of changes
+          break;
         }
       }
     } catch (e) {
@@ -94,13 +108,14 @@ class SyncService {
   }
 
   void startRealtimeSync() {
+    if (_userId == null) return;
     if (_firestoreSubscriptions.isNotEmpty) return;
 
-    debugPrint('[SyncService] Starting realtime Firestore streams...');
+    debugPrint('[SyncService] Starting realtime Firestore streams for user $_userId...');
+    _dbHelper.setCurrentUserId(_userId);
 
-    // 1. Sync Products
     _firestoreSubscriptions.add(
-      _firestore.collection('products').snapshots().listen((snapshot) async {
+      _userCollection('products').snapshots().listen((snapshot) async {
         for (final doc in snapshot.docs) {
           try {
             final product = ProductModel.fromMap(doc.data()..['id'] = int.tryParse(doc.id));
@@ -117,9 +132,8 @@ class SyncService {
       }),
     );
 
-    // 2. Sync Categories
     _firestoreSubscriptions.add(
-      _firestore.collection('categories').snapshots().listen((snapshot) async {
+      _userCollection('categories').snapshots().listen((snapshot) async {
         for (final doc in snapshot.docs) {
           try {
             final category = CategoryModel.fromMap(doc.data()..['id'] = doc.id);
@@ -131,15 +145,40 @@ class SyncService {
       }),
     );
 
-    // 3. Sync Suppliers
     _firestoreSubscriptions.add(
-      _firestore.collection('suppliers').snapshots().listen((snapshot) async {
+      _userCollection('suppliers').snapshots().listen((snapshot) async {
         for (final doc in snapshot.docs) {
           try {
             final supplier = SupplierModel.fromMap(doc.data()..['id'] = doc.id);
             await _dbHelper.upsertSupplier(supplier);
           } catch (e) {
             debugPrint('[SyncService] Error syncing supplier doc: $e');
+          }
+        }
+      }),
+    );
+
+    _firestoreSubscriptions.add(
+      _userCollection('sales').snapshots().listen((snapshot) async {
+        for (final doc in snapshot.docs) {
+          try {
+            final sale = SalesModel.fromMap(doc.data()..['id'] = doc.id);
+            await _dbHelper.upsertSale(sale);
+          } catch (e) {
+            debugPrint('[SyncService] Error syncing sale doc: $e');
+          }
+        }
+      }),
+    );
+
+    _firestoreSubscriptions.add(
+      _userCollection('purchases').snapshots().listen((snapshot) async {
+        for (final doc in snapshot.docs) {
+          try {
+            final purchase = PurchaseModel.fromMap(doc.data()..['id'] = doc.id);
+            await _dbHelper.upsertPurchase(purchase);
+          } catch (e) {
+            debugPrint('[SyncService] Error syncing purchase doc: $e');
           }
         }
       }),
@@ -154,7 +193,9 @@ class SyncService {
   }
 
   Future<void> _updateSyncStatus() async {
+    if (_userId == null) return;
     try {
+      _dbHelper.setCurrentUserId(_userId);
       final queue = await _dbHelper.getQueueItems();
       final currentStatus = await _dbHelper.getSyncStatus();
       await _dbHelper.upsertSyncStatus(currentStatus.copyWith(
