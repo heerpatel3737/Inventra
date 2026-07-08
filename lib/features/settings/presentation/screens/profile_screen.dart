@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/constants/app_routes.dart';
+import '../../../../providers/user_session_provider.dart';
 import '../../../../shared/widgets/app_error_view.dart';
 import '../../../../shared/widgets/app_loading_view.dart';
 import '../../../../shared/widgets/app_snackbar.dart';
@@ -23,16 +25,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isUploading = false;
 
   Future<void> _uploadProfilePhoto(String email) async {
-    final pickedFile = await StorageService.pickImage();
+    final uid = ref.read(currentUserIdProvider);
+    if (uid == null) {
+      AppSnackbar.showError(context, 'Sign in to upload a profile picture.');
+      return;
+    }
+
+    XFile? pickedFile;
+    try {
+      pickedFile = await StorageService.pickImage();
+    } catch (e) {
+      if (mounted) {
+        AppSnackbar.showError(context, 'Could not access photo library. Check app permissions.');
+      }
+      return;
+    }
     if (pickedFile == null) return;
 
     setState(() => _isUploading = true);
 
     try {
-      final fileName = 'avatar_${email}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final url = await StorageService.uploadImage(
         file: pickedFile,
-        bucketPath: 'avatars/$fileName',
+        bucketPath: StorageService.userScopedPath(
+          uid: uid,
+          folder: 'avatars',
+          fileName: fileName,
+        ),
       );
 
       final profileAsync = ref.read(profileProvider);

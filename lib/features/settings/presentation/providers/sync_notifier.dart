@@ -22,5 +22,6 @@ class SyncNotifier extends StateNotifier<AsyncValue<SyncStatusModel>> {
     }
 
     state = await AsyncValue.guard(_repository.runSync);
+    await loadStatus();
   }
 }

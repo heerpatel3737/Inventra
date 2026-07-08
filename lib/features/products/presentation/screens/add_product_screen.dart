@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/constants/app_routes.dart';
 import '../../../../data/models/product_model.dart';
 import '../../../../features/categories/presentation/providers/categories_providers.dart';
 import '../../../../features/suppliers/presentation/providers/suppliers_providers.dart';
+import '../../../../providers/user_session_provider.dart';
 import '../../../../shared/widgets/app_dropdown_field.dart';
 import '../../../../shared/widgets/app_snackbar.dart';
 import '../../../../widgets/buttons/luxury_button.dart';
@@ -64,7 +66,21 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   }
 
   Future<void> _pickAndUploadImage() async {
-    final pickedFile = await StorageService.pickImage();
+    final uid = ref.read(currentUserIdProvider);
+    if (uid == null) {
+      AppSnackbar.showError(context, 'Sign in to upload product images.');
+      return;
+    }
+
+    XFile? pickedFile;
+    try {
+      pickedFile = await StorageService.pickImage();
+    } catch (e) {
+      if (mounted) {
+        AppSnackbar.showError(context, 'Could not access photo library. Check app permissions.');
+      }
+      return;
+    }
     if (pickedFile == null) return;
 
     setState(() {
@@ -75,7 +91,11 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
       final fileName = 'product_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final url = await StorageService.uploadImage(
         file: pickedFile,
-        bucketPath: 'products/$fileName',
+        bucketPath: StorageService.userScopedPath(
+          uid: uid,
+          folder: 'products',
+          fileName: fileName,
+        ),
       );
       setState(() {
         _imageUrl = url;
@@ -86,7 +106,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     } catch (e) {
       debugPrint('[AddProduct] Image upload failed: $e');
       if (mounted) {
-        AppSnackbar.showError(context, 'Image upload failed. Storing locally for offline sync.');
+        AppSnackbar.showError(context, 'Image upload failed. Please try again when online.');
       }
     } finally {
       if (mounted) {

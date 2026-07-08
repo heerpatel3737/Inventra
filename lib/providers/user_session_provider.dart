@@ -2,8 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database/database_helper.dart';
 import '../features/categories/presentation/providers/categories_providers.dart';
+import '../features/dashboard/presentation/providers/dashboard_providers.dart';
+import '../features/notifications/presentation/providers/notifications_providers.dart';
 import '../features/purchases/presentation/providers/purchases_providers.dart';
 import '../features/sales/presentation/providers/sales_providers.dart';
+import '../features/settings/presentation/providers/settings_providers.dart';
 import '../features/suppliers/presentation/providers/suppliers_providers.dart';
 import '../providers/auth_provider.dart';
 import '../providers/product_provider.dart';
@@ -32,6 +35,11 @@ final userSessionProvider = Provider<void>((ref) {
     ref.invalidate(suppliersProvider);
     ref.invalidate(salesProvider);
     ref.invalidate(purchasesProvider);
+    ref.invalidate(notificationsProvider);
+    ref.invalidate(profileProvider);
+    ref.invalidate(rolesProvider);
+    ref.invalidate(syncStatusProvider);
+    ref.invalidate(dashboardBaseProvider);
   }
 });
 

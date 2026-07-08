@@ -93,9 +93,13 @@ class ProfileNotifier extends StateNotifier<AsyncValue<UserProfileModel>> {
           'photoUrl': updated.photoUrl,
         }, SetOptions(merge: true));
 
-        // Also update Firebase Auth display name
+        // Also update Firebase Auth display name and photo URL
         if (user.displayName != updated.name) {
           await user.updateDisplayName(updated.name);
+        }
+        final photo = updated.photoUrl;
+        if (photo != null && photo.isNotEmpty && user.photoURL != photo) {
+          await user.updatePhotoURL(photo);
         }
       }
     } catch (e) {

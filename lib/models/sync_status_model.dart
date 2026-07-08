@@ -27,7 +27,6 @@ class SyncStatusModel {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': 1,
       'lastSuccessfulSync': lastSuccessfulSync?.toIso8601String(),
       'pendingRecords': pendingRecords,
       'conflictCount': conflictCount,

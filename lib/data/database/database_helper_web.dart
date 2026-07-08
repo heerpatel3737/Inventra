@@ -450,7 +450,7 @@ class DatabaseHelper {
   static const _salesPrefix         = 'inventory_sales_v4_';
   static const _purchasesPrefix     = 'inventory_purchases_v4_';
   static const _notificationsPrefix = 'inventory_notifications_v4_';
-  static const _rolesKey            = 'inventory_roles_v2';
+  static const _rolesPrefix          = 'inventory_roles_v5_';
   static const _profilePrefix       = 'inventory_profile_v4_';
   static const _syncStatusPrefix    = 'inventory_sync_status_v4_';
   static const _syncQueuePrefix     = 'inventory_sync_queue_v4_';
@@ -527,7 +527,7 @@ class DatabaseHelper {
       ..addAll(_readList(prefs, _scopedKey(_notificationsPrefix, uid), NotificationModel.fromMap));
     _roles
       ..clear()
-      ..addAll(_readList(prefs, _rolesKey, RoleModel.fromMap));
+      ..addAll(_readList(prefs, _scopedKey(_rolesPrefix, uid), RoleModel.fromMap));
 
     final profileRaw = prefs.getString(_scopedKey(_profilePrefix, uid));
     _profile = profileRaw != null
@@ -585,10 +585,27 @@ class DatabaseHelper {
   Future<int> insertProduct(ProductModel product) async {
     final uid = _requireUserId();
     await ensureInitialized();
-    final id = _nextProductId++;
+    final id = product.id ?? _nextProductId++;
+    _products.removeWhere((p) => p.id == id);
     _products.add(product.copyWith(id: id));
     await _persistList(_scopedKey(_productsPrefix, uid), _products, (p) => p.toMap());
     return id;
+  }
+
+  Future<void> upsertProduct(ProductModel product) async {
+    final uid = _requireUserId();
+    await ensureInitialized();
+    if (product.id == null) {
+      await insertProduct(product);
+      return;
+    }
+    final index = _products.indexWhere((p) => p.id == product.id);
+    if (index == -1) {
+      _products.add(product);
+    } else {
+      _products[index] = product;
+    }
+    await _persistList(_scopedKey(_productsPrefix, uid), _products, (p) => p.toMap());
   }
 
   Future<List<ProductModel>> getProducts() async {
@@ -853,10 +870,11 @@ class DatabaseHelper {
   }
 
   Future<void> upsertRole(RoleModel role) async {
+    final uid = _requireUserId();
     await ensureInitialized();
     _roles.removeWhere((r) => r.id == role.id);
     _roles.add(role);
-    await _persistList(_rolesKey, _roles, (r) => r.toMap());
+    await _persistList(_scopedKey(_rolesPrefix, uid), _roles, (r) => r.toMap());
   }
 
   // ── User profile ────────────────────────────────────────────────────────────
@@ -910,6 +928,9 @@ class DatabaseHelper {
   Future<int> insertQueueItem(SyncQueueItem item) async {
     final uid = _requireUserId();
     await ensureInitialized();
+    _syncQueue.removeWhere(
+      (q) => q.collection == item.collection && q.recordId == item.recordId,
+    );
     final id = _syncQueue.length + 1;
     _syncQueue.add(SyncQueueItem(
       id: id,

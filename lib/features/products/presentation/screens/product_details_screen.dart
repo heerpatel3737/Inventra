@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -41,6 +42,26 @@ class ProductDetailsScreen extends ConsumerWidget {
         subtitle: '${product.skuLabel} • ${product.category} • ${_stockLabel(product.stock)}',
       ),
       children: [
+        if (product.imageUrl != null && product.imageUrl!.trim().isNotEmpty)
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: CachedNetworkImage(
+              imageUrl: product.imageUrl!,
+              height: 200,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              placeholder: (_, __) => const SizedBox(
+                height: 200,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              errorWidget: (_, __, ___) => const SizedBox(
+                height: 200,
+                child: Center(child: Icon(Icons.broken_image_outlined)),
+              ),
+            ),
+          ),
+        if (product.imageUrl != null && product.imageUrl!.trim().isNotEmpty)
+          const SizedBox(height: 12),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),

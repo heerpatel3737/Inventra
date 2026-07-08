@@ -3,6 +3,8 @@ import '../../../models/role_model.dart';
 import '../../../models/sync_status_model.dart';
 import '../../../models/user_profile_model.dart';
 
+import '../../../services/sync_service.dart';
+
 class SettingsRepository {
   SettingsRepository(this._databaseHelper);
 
@@ -29,12 +31,7 @@ class SettingsRepository {
   }
 
   Future<SyncStatusModel> runSync() async {
-    final status = SyncStatusModel(
-      lastSuccessfulSync: DateTime.now(),
-      pendingRecords: 0,
-      conflictCount: 0,
-    );
-    await _databaseHelper.upsertSyncStatus(status);
-    return status;
+    await SyncService.instance.syncQueue();
+    return _databaseHelper.getSyncStatus();
   }
 }

@@ -734,8 +734,8 @@ class DatabaseHelper {
 
   static const _databaseName = 'inventory.db';
 
-  // ── Bump to 4 for new columns ───────────────────────────────────────────────
-  static const _databaseVersion = 4;
+  // ── Bump to 5 for per-user isolation on all tables ─────────────────────────
+  static const _databaseVersion = 5;
 
   static const _productsTable      = 'products';
   static const _categoriesTable    = 'categories';
@@ -790,6 +790,7 @@ class DatabaseHelper {
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 3) await _migrateToV3(db);
         if (oldVersion < 4) await _migrateToV4(db);
+        if (oldVersion < 5) await _migrateToV5(db);
       },
     );
   }
@@ -806,10 +807,10 @@ class DatabaseHelper {
   // ── Schema creation (fresh install) ────────────────────────────────────────
 
   Future<void> _createSchema(Database db) async {
-    // products — includes imageUrl, barcode from v4
+    // products — per-user composite primary key
     await db.execute('''
 CREATE TABLE IF NOT EXISTS $_productsTable (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  id          INTEGER NOT NULL,
   name        TEXT    NOT NULL,
   price       REAL    NOT NULL,
   stock       INTEGER NOT NULL CHECK(stock >= 0),
@@ -817,49 +818,52 @@ CREATE TABLE IF NOT EXISTS $_productsTable (
   supplier    TEXT    NOT NULL,
   imageUrl    TEXT    NOT NULL DEFAULT '',
   barcode     TEXT    NOT NULL DEFAULT '',
-  userId      TEXT    NOT NULL DEFAULT ''
+  userId      TEXT    NOT NULL DEFAULT '',
+  PRIMARY KEY (id, userId)
 )
 ''');
 
     await db.execute('''
 CREATE TABLE IF NOT EXISTS $_categoriesTable (
-  id            TEXT    PRIMARY KEY,
+  id            TEXT    NOT NULL,
   name          TEXT    NOT NULL,
   description   TEXT    NOT NULL DEFAULT '',
   totalProducts INTEGER NOT NULL DEFAULT 0,
-  userId        TEXT    NOT NULL DEFAULT ''
+  userId        TEXT    NOT NULL DEFAULT '',
+  PRIMARY KEY (id, userId)
 )
 ''');
 
     await db.execute('''
 CREATE TABLE IF NOT EXISTS $_suppliersTable (
-  id      TEXT PRIMARY KEY,
+  id      TEXT NOT NULL,
   name    TEXT NOT NULL,
   phone   TEXT NOT NULL,
   email   TEXT NOT NULL,
   address TEXT NOT NULL,
   status  TEXT NOT NULL,
-  userId  TEXT NOT NULL DEFAULT ''
+  userId  TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (id, userId)
 )
 ''');
 
-    // sales — includes stockProductId, stockQuantity from v4
     await db.execute('''
 CREATE TABLE IF NOT EXISTS $_salesTable (
-  id             TEXT    PRIMARY KEY,
+  id             TEXT    NOT NULL,
   clientName     TEXT    NOT NULL,
   amount         REAL    NOT NULL,
   status         TEXT    NOT NULL,
   createdAt      TEXT    NOT NULL,
   stockProductId INTEGER,
   stockQuantity  INTEGER NOT NULL DEFAULT 1,
-  userId         TEXT    NOT NULL DEFAULT ''
+  userId         TEXT    NOT NULL DEFAULT '',
+  PRIMARY KEY (id, userId)
 )
 ''');
 
     await db.execute('''
 CREATE TABLE IF NOT EXISTS $_purchasesTable (
-  id               TEXT    PRIMARY KEY,
+  id               TEXT    NOT NULL,
   supplierName     TEXT    NOT NULL,
   amount           REAL    NOT NULL,
   status           TEXT    NOT NULL,
@@ -867,34 +871,38 @@ CREATE TABLE IF NOT EXISTS $_purchasesTable (
   expectedDelivery TEXT    NOT NULL,
   stockProductId   INTEGER,
   stockQuantity    INTEGER NOT NULL DEFAULT 1,
-  userId           TEXT    NOT NULL DEFAULT ''
+  userId           TEXT    NOT NULL DEFAULT '',
+  PRIMARY KEY (id, userId)
 )
 ''');
 
     await db.execute('''
 CREATE TABLE IF NOT EXISTS $_notificationsTable (
-  id        TEXT    PRIMARY KEY,
+  id        TEXT    NOT NULL,
   category  TEXT    NOT NULL,
   title     TEXT    NOT NULL,
   message   TEXT    NOT NULL,
   createdAt TEXT    NOT NULL,
-  isRead    INTEGER NOT NULL DEFAULT 0
+  isRead    INTEGER NOT NULL DEFAULT 0,
+  userId    TEXT    NOT NULL DEFAULT '',
+  PRIMARY KEY (id, userId)
 )
 ''');
 
     await db.execute('''
 CREATE TABLE IF NOT EXISTS $_rolesTable (
-  id          TEXT PRIMARY KEY,
+  id          TEXT NOT NULL,
   name        TEXT NOT NULL,
   description TEXT NOT NULL,
-  permissions TEXT NOT NULL
+  permissions TEXT NOT NULL,
+  userId      TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (id, userId)
 )
 ''');
 
-    // user_profile — includes photoUrl from v4
     await db.execute('''
 CREATE TABLE IF NOT EXISTS $_profileTable (
-  id         INTEGER PRIMARY KEY CHECK(id = 1),
+  userId     TEXT PRIMARY KEY,
   name       TEXT    NOT NULL,
   email      TEXT    NOT NULL,
   role       TEXT    NOT NULL,
@@ -906,7 +914,7 @@ CREATE TABLE IF NOT EXISTS $_profileTable (
 
     await db.execute('''
 CREATE TABLE IF NOT EXISTS $_syncStatusTable (
-  id                 INTEGER PRIMARY KEY CHECK(id = 1),
+  userId             TEXT PRIMARY KEY,
   lastSuccessfulSync TEXT,
   pendingRecords     INTEGER NOT NULL DEFAULT 0,
   conflictCount      INTEGER NOT NULL DEFAULT 0
@@ -975,18 +983,215 @@ CREATE TABLE IF NOT EXISTS sync_queue (
     }
   }
 
+  /// V4 → V5: per-user composite keys and userId on all remaining tables.
+  Future<void> _migrateToV5(Database db) async {
+    await _recreateTableWithCompositePk(
+      db,
+      _productsTable,
+      '''
+  id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  price REAL NOT NULL,
+  stock INTEGER NOT NULL CHECK(stock >= 0),
+  category TEXT NOT NULL,
+  supplier TEXT NOT NULL,
+  imageUrl TEXT NOT NULL DEFAULT '',
+  barcode TEXT NOT NULL DEFAULT '',
+  userId TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (id, userId)
+''',
+      'id, name, price, stock, category, supplier, imageUrl, barcode, userId',
+    );
+
+    await _recreateTableWithCompositePk(
+      db,
+      _categoriesTable,
+      '''
+  id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  totalProducts INTEGER NOT NULL DEFAULT 0,
+  userId TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (id, userId)
+''',
+      'id, name, description, totalProducts, userId',
+    );
+
+    await _recreateTableWithCompositePk(
+      db,
+      _suppliersTable,
+      '''
+  id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  email TEXT NOT NULL,
+  address TEXT NOT NULL,
+  status TEXT NOT NULL,
+  userId TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (id, userId)
+''',
+      'id, name, phone, email, address, status, userId',
+    );
+
+    await _recreateTableWithCompositePk(
+      db,
+      _salesTable,
+      '''
+  id TEXT NOT NULL,
+  clientName TEXT NOT NULL,
+  amount REAL NOT NULL,
+  status TEXT NOT NULL,
+  createdAt TEXT NOT NULL,
+  stockProductId INTEGER,
+  stockQuantity INTEGER NOT NULL DEFAULT 1,
+  userId TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (id, userId)
+''',
+      'id, clientName, amount, status, createdAt, stockProductId, stockQuantity, userId',
+    );
+
+    await _recreateTableWithCompositePk(
+      db,
+      _purchasesTable,
+      '''
+  id TEXT NOT NULL,
+  supplierName TEXT NOT NULL,
+  amount REAL NOT NULL,
+  status TEXT NOT NULL,
+  createdAt TEXT NOT NULL,
+  expectedDelivery TEXT NOT NULL,
+  stockProductId INTEGER,
+  stockQuantity INTEGER NOT NULL DEFAULT 1,
+  userId TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (id, userId)
+''',
+      'id, supplierName, amount, status, createdAt, expectedDelivery, stockProductId, stockQuantity, userId',
+    );
+
+    try {
+      await db.execute(
+        'ALTER TABLE $_notificationsTable ADD COLUMN userId TEXT NOT NULL DEFAULT ""',
+      );
+    } catch (_) {}
+
+    await _recreateTableWithCompositePk(
+      db,
+      _notificationsTable,
+      '''
+  id TEXT NOT NULL,
+  category TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  createdAt TEXT NOT NULL,
+  isRead INTEGER NOT NULL DEFAULT 0,
+  userId TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (id, userId)
+''',
+      'id, category, title, message, createdAt, isRead, userId',
+    );
+
+    try {
+      await db.execute(
+        'ALTER TABLE $_rolesTable ADD COLUMN userId TEXT NOT NULL DEFAULT ""',
+      );
+    } catch (_) {}
+
+    await _recreateTableWithCompositePk(
+      db,
+      _rolesTable,
+      '''
+  id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  permissions TEXT NOT NULL,
+  userId TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (id, userId)
+''',
+      'id, name, description, permissions, userId',
+    );
+
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS ${_profileTable}_v5 (
+  userId TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  role TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  department TEXT NOT NULL,
+  photoUrl TEXT NOT NULL DEFAULT ''
+)
+''');
+    await db.execute('DROP TABLE IF EXISTS $_profileTable');
+    await db.execute(
+      'ALTER TABLE ${_profileTable}_v5 RENAME TO $_profileTable',
+    );
+
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS ${_syncStatusTable}_v5 (
+  userId TEXT PRIMARY KEY,
+  lastSuccessfulSync TEXT,
+  pendingRecords INTEGER NOT NULL DEFAULT 0,
+  conflictCount INTEGER NOT NULL DEFAULT 0
+)
+''');
+    await db.execute('DROP TABLE IF EXISTS $_syncStatusTable');
+    await db.execute(
+      'ALTER TABLE ${_syncStatusTable}_v5 RENAME TO $_syncStatusTable',
+    );
+  }
+
+  Future<void> _recreateTableWithCompositePk(
+    Database db,
+    String table,
+    String columnDefs,
+    String selectColumns,
+  ) async {
+    final tempTable = '${table}_v5';
+    await db.execute('CREATE TABLE $tempTable ($columnDefs)');
+    await db.execute(
+      'INSERT INTO $tempTable ($selectColumns) SELECT $selectColumns FROM $table',
+    );
+    await db.execute('DROP TABLE $table');
+    await db.execute('ALTER TABLE $tempTable RENAME TO $table');
+  }
+
   // ── Products ────────────────────────────────────────────────────────────────
 
   Future<int> insertProduct(ProductModel product) async {
     final userId = _requireUserId();
     await ensureInitialized();
-    return _database!.insert(
+
+    final id = product.id ?? await _nextProductId(userId);
+    await _database!.insert(
       _productsTable,
       product.toMap()
-        ..remove('id')
+        ..['id'] = id
         ..['userId'] = userId,
-      conflictAlgorithm: ConflictAlgorithm.abort,
+      conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    return id;
+  }
+
+  Future<void> upsertProduct(ProductModel product) async {
+    if (product.id == null) {
+      await insertProduct(product);
+      return;
+    }
+    final userId = _requireUserId();
+    await ensureInitialized();
+    await _database!.insert(
+      _productsTable,
+      product.toMap()..['userId'] = userId,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<int> _nextProductId(String userId) async {
+    final result = await _database!.rawQuery(
+      'SELECT COALESCE(MAX(id), 0) + 1 AS nextId FROM $_productsTable WHERE userId = ?',
+      [userId],
+    );
+    return result.first['nextId'] as int;
   }
 
   Future<List<ProductModel>> getProducts() async {
@@ -1274,19 +1479,24 @@ CREATE TABLE IF NOT EXISTS sync_queue (
   // ── Notifications ───────────────────────────────────────────────────────────
 
   Future<List<NotificationModel>> getNotifications() async {
+    final userId = _readUserId();
+    if (userId == null) return [];
     await ensureInitialized();
     final rows = await _database!.query(
       _notificationsTable,
+      where: 'userId = ?',
+      whereArgs: [userId],
       orderBy: 'createdAt DESC',
     );
     return rows.map(NotificationModel.fromMap).toList();
   }
 
   Future<void> upsertNotification(NotificationModel notification) async {
+    final userId = _requireUserId();
     await ensureInitialized();
     await _database!.insert(
       _notificationsTable,
-      notification.toMap(),
+      notification.toMap()..['userId'] = userId,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
@@ -1294,17 +1504,18 @@ CREATE TABLE IF NOT EXISTS sync_queue (
   Future<void> replaceStockNotifications(
     List<NotificationModel> notifications,
   ) async {
+    final userId = _requireUserId();
     await ensureInitialized();
     await _database!.transaction((txn) async {
       await txn.delete(
         _notificationsTable,
-        where: 'id LIKE ?',
-        whereArgs: ['stock-%'],
+        where: 'id LIKE ? AND userId = ?',
+        whereArgs: ['stock-%', userId],
       );
       for (final n in notifications) {
         await txn.insert(
           _notificationsTable,
-          n.toMap(),
+          n.toMap()..['userId'] = userId,
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
@@ -1312,42 +1523,58 @@ CREATE TABLE IF NOT EXISTS sync_queue (
   }
 
   Future<void> markNotificationAsRead(String id) async {
+    final userId = _requireUserId();
     await ensureInitialized();
     await _database!.update(
       _notificationsTable,
       {'isRead': 1},
-      where: 'id = ?',
-      whereArgs: [id],
+      where: 'id = ? AND userId = ?',
+      whereArgs: [id, userId],
     );
   }
 
   Future<void> markAllNotificationsAsRead() async {
+    final userId = _requireUserId();
     await ensureInitialized();
-    await _database!.update(_notificationsTable, {'isRead': 1});
+    await _database!.update(
+      _notificationsTable,
+      {'isRead': 1},
+      where: 'userId = ?',
+      whereArgs: [userId],
+    );
   }
 
   Future<int> deleteNotification(String id) async {
+    final userId = _requireUserId();
     await ensureInitialized();
     return _database!.delete(
       _notificationsTable,
-      where: 'id = ?',
-      whereArgs: [id],
+      where: 'id = ? AND userId = ?',
+      whereArgs: [id, userId],
     );
   }
 
   // ── Roles ───────────────────────────────────────────────────────────────────
 
   Future<List<RoleModel>> getRoles() async {
+    final userId = _readUserId();
+    if (userId == null) return [];
     await ensureInitialized();
-    final rows = await _database!.query(_rolesTable, orderBy: 'name ASC');
+    final rows = await _database!.query(
+      _rolesTable,
+      where: 'userId = ?',
+      whereArgs: [userId],
+      orderBy: 'name ASC',
+    );
     return rows.map(RoleModel.fromMap).toList();
   }
 
   Future<void> upsertRole(RoleModel role) async {
+    final userId = _requireUserId();
     await ensureInitialized();
     await _database!.insert(
       _rolesTable,
-      role.toMap(),
+      role.toMap()..['userId'] = userId,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
@@ -1355,10 +1582,12 @@ CREATE TABLE IF NOT EXISTS sync_queue (
   // ── User profile ────────────────────────────────────────────────────────────
 
   Future<UserProfileModel> getProfile() async {
+    final userId = _requireUserId();
     await ensureInitialized();
     final rows = await _database!.query(
       _profileTable,
-      where: 'id = 1',
+      where: 'userId = ?',
+      whereArgs: [userId],
       limit: 1,
     );
     if (rows.isEmpty) {
@@ -1368,7 +1597,7 @@ CREATE TABLE IF NOT EXISTS sync_queue (
         role: '',
         phone: '',
         department: '',
-        photoUrl: '',   // new field
+        photoUrl: '',
       );
       await upsertProfile(profile);
       return profile;
@@ -1377,10 +1606,11 @@ CREATE TABLE IF NOT EXISTS sync_queue (
   }
 
   Future<void> upsertProfile(UserProfileModel profile) async {
+    final userId = _requireUserId();
     await ensureInitialized();
     await _database!.insert(
       _profileTable,
-      profile.toMap(),
+      profile.toMap()..['userId'] = userId,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
@@ -1388,10 +1618,12 @@ CREATE TABLE IF NOT EXISTS sync_queue (
   // ── Sync status ─────────────────────────────────────────────────────────────
 
   Future<SyncStatusModel> getSyncStatus() async {
+    final userId = _requireUserId();
     await ensureInitialized();
     final rows = await _database!.query(
       _syncStatusTable,
-      where: 'id = 1',
+      where: 'userId = ?',
+      whereArgs: [userId],
       limit: 1,
     );
     if (rows.isEmpty) {
@@ -1403,10 +1635,11 @@ CREATE TABLE IF NOT EXISTS sync_queue (
   }
 
   Future<void> upsertSyncStatus(SyncStatusModel status) async {
+    final userId = _requireUserId();
     await ensureInitialized();
     await _database!.insert(
       _syncStatusTable,
-      status.toMap(),
+      status.toMap()..['userId'] = userId,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
@@ -1416,6 +1649,11 @@ CREATE TABLE IF NOT EXISTS sync_queue (
   Future<int> insertQueueItem(SyncQueueItem item) async {
     final userId = _requireUserId();
     await ensureInitialized();
+    await _database!.delete(
+      'sync_queue',
+      where: 'collection = ? AND recordId = ? AND userId = ?',
+      whereArgs: [item.collection, item.recordId, userId],
+    );
     return _database!.insert(
       'sync_queue',
       item.toMap()
@@ -1438,11 +1676,12 @@ CREATE TABLE IF NOT EXISTS sync_queue (
   }
 
   Future<int> deleteQueueItem(int id) async {
+    final userId = _requireUserId();
     await ensureInitialized();
     return _database!.delete(
       'sync_queue',
-      where: 'id = ?',
-      whereArgs: [id],
+      where: 'id = ? AND userId = ?',
+      whereArgs: [id, userId],
     );
   }
 

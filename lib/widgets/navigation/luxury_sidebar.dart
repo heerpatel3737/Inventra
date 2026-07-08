@@ -19,12 +19,12 @@ class LuxurySidebar extends ConsumerWidget {
     final authState = ref.watch(authStateProvider);
     final profileAsync = ref.watch(profileProvider);
 
-    // Extract Firebase Auth user data
     final user = authState.valueOrNull;
-    final photoUrl = user?.photoURL;
-
-    // Prefer profile name/role from persisted profile, fallback to Firebase Auth
+    // Prefer persisted profile photo, then Firebase Auth photoURL
     final profileData = profileAsync.valueOrNull;
+    final photoUrl = (profileData?.photoUrl != null && profileData!.photoUrl!.isNotEmpty)
+        ? profileData.photoUrl
+        : user?.photoURL;
     final displayName = (profileData != null && profileData.name.isNotEmpty)
         ? profileData.name
         : (user?.displayName?.isNotEmpty == true)

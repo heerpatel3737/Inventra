@@ -116,15 +116,22 @@ class SyncService {
 
     _firestoreSubscriptions.add(
       _userCollection('products').snapshots().listen((snapshot) async {
-        for (final doc in snapshot.docs) {
+        for (final change in snapshot.docChanges) {
           try {
-            final product = ProductModel.fromMap(doc.data()..['id'] = int.tryParse(doc.id));
-            final localProducts = await _dbHelper.getProducts();
-            if (!localProducts.any((p) => p.id == product.id)) {
-              await _dbHelper.insertProduct(product);
-            } else {
-              await _dbHelper.updateProduct(product);
+            if (change.type == DocumentChangeType.removed) {
+              final id = int.tryParse(change.doc.id);
+              if (id != null) {
+                await _dbHelper.deleteProduct(id);
+              }
+              continue;
             }
+
+            final data = change.doc.data();
+            if (data == null) continue;
+            final product = ProductModel.fromMap(
+              Map<String, dynamic>.from(data)..['id'] = int.tryParse(change.doc.id),
+            );
+            await _dbHelper.upsertProduct(product);
           } catch (e) {
             debugPrint('[SyncService] Error syncing product doc: $e');
           }
@@ -134,9 +141,17 @@ class SyncService {
 
     _firestoreSubscriptions.add(
       _userCollection('categories').snapshots().listen((snapshot) async {
-        for (final doc in snapshot.docs) {
+        for (final change in snapshot.docChanges) {
           try {
-            final category = CategoryModel.fromMap(doc.data()..['id'] = doc.id);
+            if (change.type == DocumentChangeType.removed) {
+              await _dbHelper.deleteCategory(change.doc.id);
+              continue;
+            }
+            final data = change.doc.data();
+            if (data == null) continue;
+            final category = CategoryModel.fromMap(
+              Map<String, dynamic>.from(data)..['id'] = change.doc.id,
+            );
             await _dbHelper.upsertCategory(category);
           } catch (e) {
             debugPrint('[SyncService] Error syncing category doc: $e');
@@ -147,9 +162,17 @@ class SyncService {
 
     _firestoreSubscriptions.add(
       _userCollection('suppliers').snapshots().listen((snapshot) async {
-        for (final doc in snapshot.docs) {
+        for (final change in snapshot.docChanges) {
           try {
-            final supplier = SupplierModel.fromMap(doc.data()..['id'] = doc.id);
+            if (change.type == DocumentChangeType.removed) {
+              await _dbHelper.deleteSupplier(change.doc.id);
+              continue;
+            }
+            final data = change.doc.data();
+            if (data == null) continue;
+            final supplier = SupplierModel.fromMap(
+              Map<String, dynamic>.from(data)..['id'] = change.doc.id,
+            );
             await _dbHelper.upsertSupplier(supplier);
           } catch (e) {
             debugPrint('[SyncService] Error syncing supplier doc: $e');
@@ -160,9 +183,17 @@ class SyncService {
 
     _firestoreSubscriptions.add(
       _userCollection('sales').snapshots().listen((snapshot) async {
-        for (final doc in snapshot.docs) {
+        for (final change in snapshot.docChanges) {
           try {
-            final sale = SalesModel.fromMap(doc.data()..['id'] = doc.id);
+            if (change.type == DocumentChangeType.removed) {
+              await _dbHelper.deleteSale(change.doc.id);
+              continue;
+            }
+            final data = change.doc.data();
+            if (data == null) continue;
+            final sale = SalesModel.fromMap(
+              Map<String, dynamic>.from(data)..['id'] = change.doc.id,
+            );
             await _dbHelper.upsertSale(sale);
           } catch (e) {
             debugPrint('[SyncService] Error syncing sale doc: $e');
@@ -173,9 +204,17 @@ class SyncService {
 
     _firestoreSubscriptions.add(
       _userCollection('purchases').snapshots().listen((snapshot) async {
-        for (final doc in snapshot.docs) {
+        for (final change in snapshot.docChanges) {
           try {
-            final purchase = PurchaseModel.fromMap(doc.data()..['id'] = doc.id);
+            if (change.type == DocumentChangeType.removed) {
+              await _dbHelper.deletePurchase(change.doc.id);
+              continue;
+            }
+            final data = change.doc.data();
+            if (data == null) continue;
+            final purchase = PurchaseModel.fromMap(
+              Map<String, dynamic>.from(data)..['id'] = change.doc.id,
+            );
             await _dbHelper.upsertPurchase(purchase);
           } catch (e) {
             debugPrint('[SyncService] Error syncing purchase doc: $e');
