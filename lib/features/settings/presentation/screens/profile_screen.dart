@@ -33,10 +33,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     XFile? pickedFile;
     try {
-      pickedFile = await StorageService.pickImage();
+      pickedFile = await StorageService.pickImage(context: context);
     } catch (e) {
       if (mounted) {
-        AppSnackbar.showError(context, 'Could not access photo library. Check app permissions.');
+        final errorMsg = e.toString().replaceAll('Exception: ', '').replaceAll('Invalid argument(s): ', '');
+        AppSnackbar.showError(context, 'Could not access photo library: $errorMsg');
       }
       return;
     }
@@ -73,7 +74,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } catch (e) {
       debugPrint('[ProfileScreen] Error uploading photo: $e');
       if (mounted) {
-        AppSnackbar.showError(context, 'Profile picture upload failed. Please try again.');
+        final errorMsg = e.toString().replaceAll('Exception: ', '').replaceAll('Invalid argument(s): ', '');
+        AppSnackbar.showError(context, 'Upload failed: $errorMsg');
       }
     } finally {
       if (mounted) {

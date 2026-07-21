@@ -74,10 +74,11 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
 
     XFile? pickedFile;
     try {
-      pickedFile = await StorageService.pickImage();
+      pickedFile = await StorageService.pickImage(context: context);
     } catch (e) {
       if (mounted) {
-        AppSnackbar.showError(context, 'Could not access photo library. Check app permissions.');
+        final errorMsg = e.toString().replaceAll('Exception: ', '').replaceAll('Invalid argument(s): ', '');
+        AppSnackbar.showError(context, 'Could not access photo library: $errorMsg');
       }
       return;
     }
@@ -106,7 +107,8 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     } catch (e) {
       debugPrint('[AddProduct] Image upload failed: $e');
       if (mounted) {
-        AppSnackbar.showError(context, 'Image upload failed. Please try again when online.');
+        final errorMsg = e.toString().replaceAll('Exception: ', '').replaceAll('Invalid argument(s): ', '');
+        AppSnackbar.showError(context, 'Upload failed: $errorMsg');
       }
     } finally {
       if (mounted) {

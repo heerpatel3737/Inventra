@@ -17,7 +17,7 @@ class DefaultFirebaseOptions {
       messagingSenderId: messagingSenderId ?? 'placeholder_sender_id',
       projectId: projectId ?? 'placeholder_project_id',
       authDomain: '${projectId ?? "placeholder_project_id"}.firebaseapp.com',
-      storageBucket: '${projectId ?? "placeholder_project_id"}.appspot.com',
+      storageBucket: '${projectId ?? "placeholder_project_id"}.firebasestorage.app',
     );
   }
 }

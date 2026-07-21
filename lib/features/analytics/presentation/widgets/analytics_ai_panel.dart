@@ -27,7 +27,7 @@ class AnalyticsAiPanel extends ConsumerWidget {
                 const Icon(Icons.auto_awesome_rounded, color: AppColors.accentGold, size: 24),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text('AI Cognitive Forecast', style: Theme.of(context).textTheme.titleLarge),
+                  child: Text('Intelligent Demand Forecast', style: Theme.of(context).textTheme.titleLarge),
                 ),
                 // Active provider badge
                 if (activeProvider != AiProviderStatus.none)
@@ -58,7 +58,7 @@ class AnalyticsAiPanel extends ConsumerWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Select analysis type, then tap "Run Analysis" to query the AI engine.',
+              'Intelligent inventory demand prediction based on historical inventory trends and business rules.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 16),
